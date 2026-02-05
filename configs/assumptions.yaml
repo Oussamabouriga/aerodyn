@@ -1,1 +1,44 @@
-assumptions: []
+assumptions:
+  - id: AS_REG_CONSTRAINTS_FROM_EXPORT_CONTROL
+    statement: "Regulatory constraints increase when export-control / licensing burdens tighten, limiting market access."
+    uncertainty: medium
+    owner: AeroDyn model team
+    review_date: 2026-03-01
+    linked_variables:
+      - regulatory_constraint_level
+      - market_access_factor
+    linked_params:
+      - policy_tightening_trend
+    evidence_ids:
+      - E_EU_DUAL_USE_2021_821
+      - E_EU_COMMON_POSITION_2008_944
+      - E_WASSENAAR_LISTS
+    notes: "Model abstraction: policy tightening trend proxies licensing friction and compliance overhead."
+
+  - id: AS_DEFENCE_EXEMPTION_REDUCES_CONSTRAINTS
+    statement: "Defence exemptions can reduce regulatory constraints in specific jurisdictions/contexts."
+    uncertainty: high
+    owner: AeroDyn model team
+    review_date: 2026-03-01
+    linked_variables:
+      - regulatory_constraint_level
+    linked_params:
+      - pr_transparency_effort
+    evidence_ids:
+      - E_AI_ACT_ART2
+    notes: "In v0.1 we represent this as a gradual moderation effect rather than a binary exemption."
+
+  - id: AS_INCIDENTS_DRIVE_BACKLASH_REPUTATION
+    statement: "Higher incident rate increases backlash, which reduces reputation and win-rate, lowering deal flow."
+    uncertainty: medium
+    owner: AeroDyn model team
+    review_date: 2026-03-01
+    linked_variables:
+      - public_backlash_index
+      - reputation_capital
+      - opportunity_pipeline
+    linked_params:
+      - incident_rate
+    evidence_ids:
+      - E_AI_ACT_ART2
+    notes: "Backlash is proxied; later you can add empirical evidence sources."

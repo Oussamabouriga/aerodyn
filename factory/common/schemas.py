@@ -83,3 +83,64 @@ class RecommendationRule(BaseModel):
 
 class RecommendationRulesConfig(BaseModel):
     recommendation_rules: List[RecommendationRule]
+
+
+# =========================================================
+# NEW (for Model Transparency): Evidence + Assumptions
+# These are additive and will NOT affect existing validators.
+# =========================================================
+
+Reliability = Literal["A", "B", "C", "D"]
+EvidenceSourceType = Literal["policy", "paper", "internal", "news", "other"]
+Uncertainty = Literal["low", "medium", "high"]
+
+
+class EvidenceItem(BaseModel):
+    id: str
+    source_type: EvidenceSourceType
+    title: str
+    snippet: str
+    reliability: Reliability
+
+    jurisdiction: Optional[str] = None
+    date: Optional[str] = None
+    url: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+
+class EvidenceConfig(BaseModel):
+    evidence: List[EvidenceItem] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def unique_ids(self):
+        ids = [e.id for e in self.evidence]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Duplicate evidence ids found in evidence.yaml")
+        return self
+
+
+class AssumptionItem(BaseModel):
+    id: str
+    statement: str
+    uncertainty: Uncertainty
+
+    owner: Optional[str] = None
+    review_date: Optional[str] = None
+
+    linked_variables: List[str] = Field(default_factory=list)
+    linked_params: List[str] = Field(default_factory=list)
+    evidence_ids: List[str] = Field(default_factory=list)
+
+    notes: Optional[str] = None
+
+
+class AssumptionsConfig(BaseModel):
+    assumptions: List[AssumptionItem] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def unique_ids(self):
+        ids = [a.id for a in self.assumptions]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Duplicate assumption ids found in assumptions.yaml")
+        return self

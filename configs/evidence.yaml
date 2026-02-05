@@ -1,28 +1,44 @@
 evidence:
   - id: E_AI_ACT_ART2
     source_type: policy
-    title: EU AI Act - Article 2 Scope (defence exemption)
-    snippet: "Defence/military exemptions under specified conditions."
+    title: "EU AI Act — Article 2 (Scope / exemptions)"
+    snippet: "Defines the scope of the EU AI Act and includes exemptions/limitations under specific contexts (including defence/military-related exclusions under conditions)."
     reliability: A
-    tags: [regulation, ai_act, scope]
+    jurisdiction: EU
+    date: 2024-03-13
+    url: ""
+    tags: [regulation, eu_ai_act, scope, exemptions]
+    notes: "Use as policy-context evidence only; verify final consolidated text/version used by counsel."
 
   - id: E_EU_DUAL_USE_2021_821
     source_type: policy
-    title: EU Dual-Use Export Controls (2021/821)
-    snippet: "Controls export/transfer/technical assistance for dual-use items incl. software/technology."
+    title: "EU Dual-Use Regulation (EU) 2021/821"
+    snippet: "Establishes EU export controls for dual-use items, including certain software/technology, and rules for transfer/technical assistance."
     reliability: A
-    tags: [export_control, dual_use, compliance]
+    jurisdiction: EU
+    date: 2021-05-20
+    url: ""
+    tags: [export_control, dual_use, compliance, licensing]
+    notes: "Core compliance driver; model uses this as a proxy for export/licensing friction and constraints."
 
   - id: E_EU_COMMON_POSITION_2008_944
     source_type: policy
-    title: EU Common Position 2008/944/CFSP (military export licensing criteria)
-    snippet: "Member States assess export licenses using common criteria (risk, stability, etc.)."
+    title: "EU Common Position 2008/944/CFSP (Military export licensing criteria)"
+    snippet: "Defines common criteria used by EU Member States to assess military export licences (risk, stability, human rights, etc.)."
     reliability: A
-    tags: [export_control, military, licensing]
+    jurisdiction: EU
+    date: 2008-12-08
+    url: ""
+    tags: [export_control, military, licensing, risk_criteria]
+    notes: "Supports the assumption that tightening scrutiny can raise constraints and reduce accessible markets."
 
   - id: E_WASSENAAR_LISTS
     source_type: policy
-    title: Wassenaar Arrangement control lists
-    snippet: "Public control lists for dual-use goods/tech and munitions."
+    title: "Wassenaar Arrangement — Control Lists (Dual-use & Munitions)"
+    snippet: "Public control lists for dual-use goods/technology and munitions that influence national export-control regimes."
     reliability: B
-    tags: [export_control, wassenaar, controls]
+    jurisdiction: international
+    date: ""
+    url: ""
+    tags: [export_control, wassenaar, controls, dual_use]
+    notes: "Useful for broad framing; implementation varies by country."
