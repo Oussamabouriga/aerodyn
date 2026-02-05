@@ -1,0 +1,14 @@
+decision_questions:
+  - id: Q1
+    question: >
+      Over 5–10 years, how does increasing investment in AI-enabled lethal autonomy
+      change pipeline, deals won, reputation, and regulatory/export constraints
+      under different public opinion trajectories?
+    time_horizon_years: 10
+    primary_outputs:
+      - deals_won_per_year
+      - opportunity_pipeline
+      - reputation_capital
+      - regulatory_constraint_level
+      - market_access_factor
+    recommendation_rule_ref: rec_rule_v1

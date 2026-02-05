@@ -1,0 +1,27 @@
+scenarios:
+  - id: baseline
+    name: Baseline
+    description: Moderate investment and moderate environment.
+    knobs:
+      investment_intensity: 0.55
+      incident_rate: 0.25
+      pr_transparency_effort: 0.40
+      policy_tightening_trend: 0.20
+
+  - id: tighten_world
+    name: Tightening world
+    description: More restrictive environment + higher scrutiny.
+    knobs:
+      investment_intensity: 0.55
+      incident_rate: 0.30
+      pr_transparency_effort: 0.40
+      policy_tightening_trend: 0.70
+
+  - id: high_pr
+    name: High transparency
+    description: Strong transparency/PR posture reduces backlash.
+    knobs:
+      investment_intensity: 0.55
+      incident_rate: 0.25
+      pr_transparency_effort: 0.85
+      policy_tightening_trend: 0.20

@@ -1,10 +1,11 @@
-# app/bootstrap.py
-import sys
+from __future__ import annotations
+
 from pathlib import Path
 
-# Repo root = parent of /app
-REPO_ROOT = Path(__file__).resolve().parents[1]
+from dotenv import load_dotenv
 
-# Ensure repo root is on sys.path so `import factory...` works in Streamlit
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+# Load .env from repo root (works regardless of working directory)
+REPO_ROOT = Path(__file__).resolve().parents[1]
+ENV_PATH = REPO_ROOT / ".env"
+
+load_dotenv(dotenv_path=ENV_PATH, override=False)

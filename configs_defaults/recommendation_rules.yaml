@@ -1,0 +1,8 @@
+recommendation_rules:
+  - id: rec_rule_v1
+    description: Basic board decision rule (v0.1)
+    thresholds:
+      min_deals_won_per_year: 2.0
+      min_reputation: 0.35
+      max_constraints: 0.80
+      min_market_access: 0.20

@@ -110,7 +110,14 @@ Constraints:
             {"role": "system", "content": instructions},
             {"role": "user", "content": user_request},
         ],
-        text={"format": {"type": "json_schema", "json_schema": schema}},
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": "config_change_proposal",
+                "schema": schema["schema"],  # <-- IMPORTANT: pass the inner schema
+                "strict": True,
+            }
+        },
         temperature=0.2,
     )
 
@@ -186,14 +193,21 @@ Rules:
         "user_answers": user_answers or "",
         "current_files": current_files,
     }
-
+    
     resp = client.responses.create(
         model=model,
         input=[
             {"role": "system", "content": instructions},
             {"role": "user", "content": yaml.safe_dump(context, sort_keys=False)},
         ],
-        text={"format": {"type": "json_schema", "json_schema": schema}},
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": "config_patch_bundle",
+                "schema": schema["schema"],
+                "strict": True,
+            }
+        },
         temperature=0.2,
     )
 

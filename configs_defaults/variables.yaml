@@ -1,0 +1,119 @@
+variables:
+  # =========================
+  # STOCKS (state over time)
+  # =========================
+
+  - id: opportunity_pipeline
+    name: Opportunity Pipeline
+    type: stock
+    unit: deals
+    description: >
+      Number of active business opportunities (contracts/leads) AeroDyn can convert into deals.
+      Increases with inflow; decreases when deals close or opportunities are lost.
+    initial: 40
+    bounds: { min: 0, max: 100000 }
+
+  - id: reputation_capital
+    name: Reputation Capital
+    type: stock
+    unit: index_0_1
+    description: >
+      Brand/reputation state (0..1). Affects opportunity inflow and win rate.
+      Degrades with backlash/incidents; can recover slowly via transparency/PR and time.
+    initial: 0.65
+    bounds: { min: 0, max: 1 }
+
+  - id: regulatory_constraint_level
+    name: Regulatory Constraint Level
+    type: stock
+    unit: index_0_1
+    description: >
+      Combined regulatory/export-control pressure (0..1). Higher values reduce market access
+      and slow deal conversion via licensing delays/denials and compliance burden.
+    initial: 0.35
+    bounds: { min: 0, max: 1 }
+
+  - id: ai_rnd_capability
+    name: AI R&D Capability
+    type: stock
+    unit: index_0_1
+    description: >
+      Internal capability to deliver AI-enabled systems (0..1). Driven by investment intensity.
+      Influences perceived performance and win rate.
+    initial: 0.45
+    bounds: { min: 0, max: 1 }
+
+  # =========================
+  # AUXILIARIES (computed)
+  # =========================
+
+  - id: win_rate
+    name: Win Rate
+    type: aux
+    unit: fraction_0_1
+    description: >
+      Probability of converting an opportunity into a deal (0..1).
+      Depends on capability, reputation, and constraints.
+    bounds: { min: 0, max: 1 }
+
+  - id: market_access_factor
+    name: Market Access Factor
+    type: aux
+    unit: fraction_0_1
+    description: >
+      Accessible market fraction (0..1). Drops when regulatory constraints rise.
+      Used to reduce opportunity inflow and/or conversion.
+    bounds: { min: 0, max: 1 }
+
+  - id: public_backlash_index
+    name: Public Backlash Index
+    type: aux
+    unit: index_0_1
+    description: >
+      Public/political backlash intensity (0..1). Increases with incidents and perceived lethal AI exposure.
+      Drives regulatory constraint tightening and reputation decay.
+    bounds: { min: 0, max: 1 }
+
+  # =========================
+  # PARAMETERS / KNOBS (editable)
+  # =========================
+
+  - id: investment_intensity
+    name: Investment Intensity in Lethal AI
+    type: param
+    unit: index_0_1
+    description: >
+      Board-controlled knob (0..1). Higher means stronger investment in lethal AI autonomy/targeting
+      programs (R&D, integration, trials). Drives AI capability growth and may increase exposure.
+    default: 0.55
+    bounds: { min: 0, max: 1 }
+
+  - id: incident_rate
+    name: Incident Rate (controversy/field failure)
+    type: param
+    unit: index_0_1
+    description: >
+      Exogenous/environmental risk knob (0..1). Represents likelihood/intensity of incidents that trigger
+      media/political scrutiny (e.g., failure, misuse allegation, controversy).
+    default: 0.25
+    bounds: { min: 0, max: 1 }
+
+  - id: pr_transparency_effort
+    name: Transparency & PR Effort
+    type: param
+    unit: index_0_1
+    description: >
+      Board-controlled knob (0..1). Investment in transparency, assurance, governance, and communication.
+      Mitigates backlash growth and supports reputation recovery (with delays).
+    default: 0.40
+    bounds: { min: 0, max: 1 }
+
+  - id: policy_tightening_trend
+    name: Policy Tightening Trend
+    type: param
+    unit: trend_-1_+1
+    description: >
+      External trend knob (-1..+1). +1 means environment tightening (more restrictions, stricter licensing),
+      -1 means loosening. Influences how quickly constraints rise/fall.
+    default: 0.20
+    bounds: { min: -1, max: 1 }

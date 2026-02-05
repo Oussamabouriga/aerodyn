@@ -5,20 +5,61 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-import streamlit as st  # noqa: E402
+import app.bootstrap  # noqa: F401
 
+import streamlit as st  # noqa: E402
+import yaml  # noqa: E402
+
+from factory.audit.restore_defaults import restore_configs_from_defaults  # noqa: E402
 from factory.extract.llm_config_agent import propose_change, generate_patch  # noqa: E402
-from factory.config.io import load_yaml, compute_diff, safe_write_with_backup, validate_by_filename  # noqa: E402
+from factory.config.io import (  # noqa: E402
+    load_yaml,
+    compute_diff,
+    safe_write_with_backup,
+    validate_by_filename,
+)
 
 st.set_page_config(page_title="Chat → Edit Model", page_icon="🤖", layout="wide")
 st.title("Chat → Edit Model (LLM-assisted)")
 st.caption("Describe changes in natural language → review → approve → apply safely (diff + validation + backups).")
 
+# -----------------------------------------
+# Reset-to-defaults button (NEW)
+# -----------------------------------------
+st.divider()
+col1, col2 = st.columns([1, 2])
+
+with col1:
+    reset_defaults = st.button("↩️ Reset configs to defaults", use_container_width=True)
+
+with col2:
+    st.caption("Restores YAML files from configs_defaults/ → configs/ (with backups + validation).")
+
+if reset_defaults:
+    try:
+        restored = restore_configs_from_defaults()
+
+        # Clear state so everything reloads cleanly
+        for k in ["proposal", "patch_bundle", "editor_text", "last_file"]:
+            if k in st.session_state:
+                del st.session_state[k]
+
+        st.success(f"Restored defaults for: {restored}")
+        st.rerun()
+    except Exception as e:
+        st.error(f"Reset failed: {e}")
+
+# -----------------------------------------
+# Session state
+# -----------------------------------------
 if "proposal" not in st.session_state:
     st.session_state.proposal = None
 if "patch_bundle" not in st.session_state:
     st.session_state.patch_bundle = None
 
+# -----------------------------------------
+# User request
+# -----------------------------------------
 user_request = st.text_area(
     "What do you want to change?",
     placeholder="Example: Constraints rise too fast. Make regulation more delayed and add a stricter-world scenario. Also document assumptions.",
@@ -36,6 +77,9 @@ if clear_btn:
     st.session_state.patch_bundle = None
     st.rerun()
 
+# -----------------------------------------
+# Stage A: Proposal
+# -----------------------------------------
 if propose_btn and user_request.strip():
     with st.spinner("Thinking… (proposal)"):
         st.session_state.proposal = propose_change(user_request)
@@ -72,6 +116,9 @@ user_answers = st.text_area(
 
 approve = st.checkbox("I approve this plan. Generate patch.", value=False)
 
+# -----------------------------------------
+# Stage B: Patch generation
+# -----------------------------------------
 if approve:
     gen_patch_btn = st.button("Generate patch", use_container_width=True)
     if gen_patch_btn:
@@ -85,21 +132,22 @@ if not bundle:
 st.subheader("2) Patch preview")
 st.write(bundle.summary)
 
-# Show per-file diff + validation
+# -----------------------------------------
+# Validate + Diff for each patched file
+# -----------------------------------------
 for patch in bundle.patches:
     st.markdown(f"### {patch.path}")
 
-    # old data
     old_data = load_yaml(patch.path)
-    # try parse new YAML
+
+    # Parse new YAML
     try:
-        import yaml
         new_data = yaml.safe_load(patch.new_content) or {}
     except Exception as e:
         st.error(f"Patch YAML is invalid for {patch.path}: {e}")
         st.stop()
 
-    # Business validate (blocks apply if invalid)
+    # Business validation
     try:
         filename = Path(patch.path).name
         validate_by_filename(filename, new_data)
@@ -114,6 +162,9 @@ for patch in bundle.patches:
     else:
         st.info("No diff (same content).")
 
+# -----------------------------------------
+# Apply patch
+# -----------------------------------------
 st.divider()
 apply_btn = st.button("✅ Apply patch (with backups)", type="primary", use_container_width=True)
 
@@ -122,6 +173,12 @@ if apply_btn:
     for patch in bundle.patches:
         backup = safe_write_with_backup(patch.path, patch.new_content, audit_dir="runs/audit")
         backups.append(str(backup))
+
+    # Reset state so you can do another request cleanly
+    st.session_state.proposal = None
+    st.session_state.patch_bundle = None
+
     st.success("Patch applied successfully.")
     st.caption("Backups created:")
     st.write(backups)
+    st.rerun()
