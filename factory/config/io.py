@@ -15,9 +15,10 @@ from factory.common.schemas import (
     ScenariosConfig,
     ModelConfig,
     RecommendationRulesConfig,
+    ClaimsConfig,
+    LoopsConfig,
     EvidenceConfig,
     AssumptionsConfig,
-    ClaimsConfig,
 )
 
 # -----------------------------
@@ -175,6 +176,22 @@ def validate_by_filename(filename: str, parsed_yaml: Dict[str, Any]) -> None:
         validate_claims_cfg(parsed_yaml)
         return
     
+    if filename == "claims.yaml":
+        validate_claims_cfg(parsed_yaml)
+        return
+
+    if filename == "loops.yaml":
+        validate_loops_cfg(parsed_yaml)
+        return
+    
+    if filename == "structure.yaml":
+        # for now: YAML syntax only; you can add strict schema later
+        return
+
+    if filename == "equations.yaml":
+        # for now: YAML syntax only; you can add strict schema later
+        return
+    
     # For other YAML files (evidence.yaml, assumptions.yaml, etc.)
     # we currently only guarantee YAML syntax validity.
     return
@@ -275,4 +292,29 @@ def validate_claims_cfg(data: Dict[str, Any]) -> ClaimsConfig:
         if c.evidence_id not in ev_ids:
             raise ValueError(f"Claim '{c.id}' references unknown evidence_id '{c.evidence_id}'")
 
+    return cfg
+
+def validate_claims_cfg(data: Dict[str, Any]) -> ClaimsConfig:
+    """
+    Validates configs/claims.yaml:
+    - schema ok
+    - claim IDs unique
+    """
+    cfg = ClaimsConfig.model_validate(data)
+    ids = [c.id for c in cfg.claims]
+    if len(ids) != len(set(ids)):
+        raise ValueError("Duplicate claim ids found in claims.yaml")
+    return cfg
+
+
+def validate_loops_cfg(data: Dict[str, Any]) -> LoopsConfig:
+    """
+    Validates configs/loops.yaml:
+    - schema ok
+    - loop IDs unique
+    """
+    cfg = LoopsConfig.model_validate(data)
+    ids = [l.id for l in cfg.loops]
+    if len(ids) != len(set(ids)):
+        raise ValueError("Duplicate loop ids found in loops.yaml")
     return cfg

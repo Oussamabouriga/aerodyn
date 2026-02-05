@@ -1,0 +1,41 @@
+structure:
+  id: aerodyn_v0_1
+  description: "Minimal stock/flow structure for AeroDyn board question (5–10 years)."
+
+  stocks:
+    - id: opportunity_pipeline
+      inflows: [opportunity_inflow]
+      outflows: [opportunity_conversion, opportunity_loss]
+      clamp: { min: 0.0, max: 1.0e9 }
+
+    - id: reputation_capital
+      inflows: [reputation_gain]
+      outflows: [reputation_decay]
+      clamp: { min: 0.0, max: 1.0 }
+
+    - id: regulatory_constraint_level
+      inflows: [constraints_tightening]
+      outflows: [constraints_relaxing]
+      clamp: { min: 0.0, max: 1.0 }
+
+    - id: ai_rnd_capability
+      inflows: [capability_growth]
+      outflows: [capability_decay]
+      clamp: { min: 0.0, max: 1.0 }
+
+  flows:
+    - opportunity_inflow
+    - opportunity_conversion
+    - opportunity_loss
+    - reputation_gain
+    - reputation_decay
+    - constraints_tightening
+    - constraints_relaxing
+    - capability_growth
+    - capability_decay
+
+  aux:
+    - win_rate
+    - market_access_factor
+    - public_backlash_index
+    - deals_won_per_year

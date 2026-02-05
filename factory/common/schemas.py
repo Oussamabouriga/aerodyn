@@ -185,3 +185,57 @@ class ClaimsConfig(BaseModel):
         if len(ids) != len(set(ids)):
             raise ValueError("Duplicate claim ids found in claims.yaml")
         return self
+
+
+# -----------------------------
+# Step 3/4: Claims + Loops
+# -----------------------------
+from typing import Literal as _Literal  # keep file safe if you already imported Literal above
+
+
+ClaimStatus = _Literal["proposed", "approved", "rejected"]
+ClaimPolarity = _Literal["+", "-"]
+
+
+class Claim(BaseModel):
+    id: str
+    status: ClaimStatus = "proposed"
+    statement: str = ""
+    from_var: str
+    to_var: str
+    polarity: ClaimPolarity = "+"
+    delay_months: int = 0
+    confidence: float = 0.6
+
+    # evidence (optional)
+    evidence_id: Optional[str] = None
+    evidence_snippet: Optional[str] = None
+    notes: Optional[str] = ""
+
+    @model_validator(mode="after")
+    def check_claim(self):
+        if self.delay_months < 0:
+            raise ValueError("delay_months must be >= 0")
+        if not (0.0 <= float(self.confidence) <= 1.0):
+            raise ValueError("confidence must be between 0 and 1")
+        return self
+
+
+class ClaimsConfig(BaseModel):
+    claims: List[Claim]
+
+
+LoopType = _Literal["R", "B"]
+
+
+class Loop(BaseModel):
+    id: str
+    type: LoopType
+    sign: int
+    nodes: List[str]
+    edge_claim_ids: List[str]
+    notes: Optional[str] = ""
+
+
+class LoopsConfig(BaseModel):
+    loops: List[Loop]

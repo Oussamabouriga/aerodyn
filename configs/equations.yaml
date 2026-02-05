@@ -1,0 +1,110 @@
+equations:
+  # ------------------------------------------------------
+  # Auxiliaries (computed each step)
+  # ------------------------------------------------------
+  - id: public_backlash_index
+    kind: aux
+    formula: "clamp(incident_rate * (1 - pr_transparency_effort) * (1 + regulatory_constraint_level), 0, 1)"
+    depends_on: [incident_rate, pr_transparency_effort, regulatory_constraint_level]
+    assumption_ids: [AS_INCIDENTS_DRIVE_BACKLASH_REPUTATION]
+    evidence_ids: [E_AI_ACT_ART2]
+    notes: "Proxy: incidents drive backlash; PR/oversight dampens backlash."
+
+  - id: market_access_factor
+    kind: aux
+    formula: "clamp(1 - regulatory_constraint_level, 0, 1)"
+    depends_on: [regulatory_constraint_level]
+    assumption_ids: [AS_REG_CONSTRAINTS_FROM_EXPORT_CONTROL]
+    evidence_ids: [E_EU_DUAL_USE_2021_821, E_EU_COMMON_POSITION_2008_944]
+    notes: "Simplification: constraints reduce eligible market access."
+
+  - id: win_rate
+    kind: aux
+    formula: "clamp(base_win_rate * (0.3 + 0.7*ai_rnd_capability) * (0.4 + 0.6*reputation_capital) * (0.2 + 0.8*market_access_factor), 0, 1)"
+    depends_on: [base_win_rate, ai_rnd_capability, reputation_capital, market_access_factor]
+    assumption_ids: [AS_INCIDENTS_DRIVE_BACKLASH_REPUTATION]
+    evidence_ids: []
+    notes: "Win rate increases with capability, reputation, and market access."
+
+  - id: deals_won_per_year
+    kind: aux
+    formula: "opportunity_conversion"
+    depends_on: [opportunity_conversion]
+    assumption_ids: []
+    evidence_ids: []
+    notes: "In this minimal model, conversion flow is 'deals won per year'."
+
+  # ------------------------------------------------------
+  # Flows (rates per YEAR)
+  # ------------------------------------------------------
+  - id: opportunity_inflow
+    kind: flow
+    formula: "base_opportunity_inflow * (0.5 + 0.5*reputation_capital) * (0.2 + 0.8*market_access_factor)"
+    depends_on: [base_opportunity_inflow, reputation_capital, market_access_factor]
+    assumption_ids: [AS_REG_CONSTRAINTS_FROM_EXPORT_CONTROL]
+    evidence_ids: [E_EU_COMMON_POSITION_2008_944]
+    notes: "Higher reputation + access → more incoming opportunities."
+
+  - id: opportunity_conversion
+    kind: flow
+    formula: "opportunity_pipeline * win_rate / avg_sales_cycle_years"
+    depends_on: [opportunity_pipeline, win_rate, avg_sales_cycle_years]
+    assumption_ids: []
+    evidence_ids: []
+    notes: "Pipeline converts into wins; avg sales cycle is a delay proxy."
+
+  - id: opportunity_loss
+    kind: flow
+    formula: "opportunity_pipeline * churn_rate"
+    depends_on: [opportunity_pipeline, churn_rate]
+    assumption_ids: []
+    evidence_ids: []
+    notes: "Lost opportunities / competitors / procurement attrition."
+
+  - id: reputation_gain
+    kind: flow
+    formula: "reputation_gain_rate * (deals_won_per_year / (1 + deals_won_per_year)) * (1 - public_backlash_index)"
+    depends_on: [reputation_gain_rate, deals_won_per_year, public_backlash_index]
+    assumption_ids: []
+    evidence_ids: []
+    notes: "Wins generate success stories unless backlash dominates."
+
+  - id: reputation_decay
+    kind: flow
+    formula: "reputation_decay_rate * public_backlash_index * (0.3 + 0.7*incident_rate)"
+    depends_on: [reputation_decay_rate, public_backlash_index, incident_rate]
+    assumption_ids: [AS_INCIDENTS_DRIVE_BACKLASH_REPUTATION]
+    evidence_ids: [E_AI_ACT_ART2]
+    notes: "Backlash and incidents erode reputation."
+
+  - id: constraints_tightening
+    kind: flow
+    formula: "constraint_tighten_rate * clamp(policy_tightening_trend, 0, 1) * (0.4 + 0.6*public_backlash_index)"
+    depends_on: [constraint_tighten_rate, policy_tightening_trend, public_backlash_index]
+    assumption_ids: [AS_REG_CONSTRAINTS_FROM_EXPORT_CONTROL]
+    evidence_ids: [E_EU_DUAL_USE_2021_821, E_EU_COMMON_POSITION_2008_944]
+    notes: "Backlash + tightening trend increase constraints."
+
+  - id: constraints_relaxing
+    kind: flow
+    formula: "constraint_relax_rate * clamp(-policy_tightening_trend, 0, 1) * clamp(pr_transparency_effort, 0, 1) * clamp(reputation_capital - 0.5, 0, 1)"
+    depends_on: [constraint_relax_rate, policy_tightening_trend, pr_transparency_effort, reputation_capital]
+    assumption_ids: [AS_DEFENCE_EXEMPTION_REDUCES_CONSTRAINTS]
+    evidence_ids: [E_AI_ACT_ART2]
+    notes: "Relaxing trend + transparency + good reputation can ease constraints slowly."
+
+  - id: capability_growth
+    kind: flow
+    formula: "capability_growth_rate * investment_intensity * (1 - ai_rnd_capability)"
+    depends_on: [capability_growth_rate, investment_intensity, ai_rnd_capability]
+    assumption_ids: []
+    evidence_ids: []
+    notes: "Investment grows capability with diminishing returns."
+
+  - id: capability_decay
+    kind: flow
+    formula: "capability_decay_rate * ai_rnd_capability"
+    depends_on: [capability_decay_rate, ai_rnd_capability]
+    assumption_ids: []
+    evidence_ids: []
+    notes: "Capability decays without continuous effort."
