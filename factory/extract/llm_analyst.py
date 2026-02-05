@@ -1,52 +1,46 @@
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
+from dotenv import load_dotenv
 from openai import OpenAI
-
-from factory.config.io import load_yaml
-
-
-# -----------------------------
-# Guardrails: high-stakes domain
-# -----------------------------
-SYSTEM_GUARDRAILS = """
-You are an AI analyst embedded in a strategic "model factory" dashboard for a defense manufacturer.
-Your role is BUSINESS & RISK DECISION SUPPORT ONLY.
-
-Hard constraints:
-- Do NOT provide operational targeting guidance, weapon optimization, lethal decision procedures, or advice that enables harm.
-- Focus on corporate strategy: revenue/pipeline, regulation/export constraints, reputation/public opinion, risk management.
-- Be explicit about uncertainty, assumptions, and model limitations.
-- Keep language CEO-friendly: concise, structured, actionable.
-"""
 
 
 @dataclass
-class AnalystResult:
-    executive_summary: list[str]
-    key_drivers: list[str]
-    risks_and_constraints: list[str]
-    recommended_actions: list[dict]
+class LLMAnalysis:
+    executive_summary: List[str]
+    key_drivers: List[str]
+    risks_and_constraints: List[str]
+    recommended_actions: List[Dict[str, Any]]
     confidence: str
-    limitations: list[str]
+    limitations: List[str]
 
 
-def _ensure_openai_client() -> OpenAI:
-    key = os.getenv("OPENAI_API_KEY", "").strip()
-    if not key:
-        raise RuntimeError("OPENAI_API_KEY is missing in environment (.env not loaded).")
-    return OpenAI()
+def _ensure_client() -> OpenAI:
+    load_dotenv()
+    api_key = (os.getenv("OPENAI_API_KEY") or "").strip().strip('"').strip("'")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is missing in .env (or environment).")
+    return OpenAI(api_key=api_key)
 
 
-def _get_model_name() -> str:
-    return os.getenv("OPENAI_MODEL", "gpt-4o")
+def _model_name() -> str:
+    load_dotenv()
+    return (os.getenv("OPENAI_MODEL") or "gpt-4o").strip().strip('"').strip("'")
 
 
-def _safe_last(df: pd.DataFrame) -> Dict[str, float]:
+def _safe_float(x: Any, default: float = 0.0) -> float:
+    try:
+        return float(x)
+    except Exception:
+        return default
+
+
+def _final_metrics(df: pd.DataFrame) -> Dict[str, float]:
     last = df.iloc[-1]
     keys = [
         "deals_won_per_year",
@@ -55,144 +49,141 @@ def _safe_last(df: pd.DataFrame) -> Dict[str, float]:
         "regulatory_constraint_level",
         "market_access_factor",
         "public_backlash_index",
-        "ai_rnd_capability",
-        "win_rate",
     ]
+    return {k: _safe_float(last.get(k, 0.0)) for k in keys}
+
+
+def _baseline_delta(current: Dict[str, float], baseline: Dict[str, float]) -> Dict[str, float]:
     out: Dict[str, float] = {}
-    for k in keys:
-        if k in df.columns:
-            out[k] = float(last[k])
-    out["year"] = float(last["year"]) if "year" in df.columns else float(len(df) - 1)
+    for k, v in current.items():
+        out[k] = v - _safe_float(baseline.get(k, 0.0))
     return out
 
 
-def _delta(selected_last: Dict[str, float], baseline_last: Optional[Dict[str, float]]) -> Dict[str, float]:
-    if not baseline_last:
-        return {}
-    d: Dict[str, float] = {}
-    for k, v in selected_last.items():
-        if k in baseline_last and k != "year":
-            d[k] = float(v) - float(baseline_last[k])
-    return d
+# -------------------------
+# STRICT schema (OpenAI-compatible)
+# IMPORTANT: No dynamic dicts (additionalProperties) for required object fields.
+# Use a list of knob changes instead.
+# -------------------------
+AERODYN_ANALYSIS_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "executive_summary": {"type": "array", "items": {"type": "string"}},
+        "key_drivers": {"type": "array", "items": {"type": "string"}},
+        "risks_and_constraints": {"type": "array", "items": {"type": "string"}},
+        "recommended_actions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "action": {"type": "string"},
+                    "rationale": {"type": "string"},
+                    "expected_effect": {"type": "string"},
+                    "knob_changes": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "knob_id": {"type": "string"},
+                                "value": {"type": "number"},
+                            },
+                            "required": ["knob_id", "value"],
+                        },
+                    },
+                },
+                "required": ["action", "rationale", "expected_effect", "knob_changes"],
+            },
+        },
+        "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+        "limitations": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": [
+        "executive_summary",
+        "key_drivers",
+        "risks_and_constraints",
+        "recommended_actions",
+        "confidence",
+        "limitations",
+    ],
+}
 
 
 def analyze_run(
     df: pd.DataFrame,
-    *,
     scenario_id: str,
     knobs_used: Dict[str, Any],
     recommendation: Dict[str, Any],
     baseline_df: Optional[pd.DataFrame] = None,
-) -> AnalystResult:
-    """
-    Returns an executive narrative + actions based on model outputs.
-    Uses structured JSON output (schema) for reliability.
-    """
-    client = _ensure_openai_client()
-    model = _get_model_name()
+) -> LLMAnalysis:
+    client = _ensure_client()
+    model = _model_name()
 
-    assumptions = load_yaml("configs/assumptions.yaml").get("assumptions", [])
-    decision_questions = load_yaml("configs/decision_questions.yaml").get("decision_questions", [])
-    rec_rules = load_yaml("configs/recommendation_rules.yaml").get("recommendation_rules", [])
+    cur = _final_metrics(df)
+    base = _final_metrics(baseline_df) if baseline_df is not None else None
+    delta = _baseline_delta(cur, base) if base is not None else None
 
-    selected_last = _safe_last(df)
-    baseline_last = _safe_last(baseline_df) if baseline_df is not None else None
-    deltas = _delta(selected_last, baseline_last)
-
-    context = {
+    payload = {
         "scenario_id": scenario_id,
         "knobs_used": knobs_used,
-        "selected_final_metrics": selected_last,
-        "baseline_final_metrics": baseline_last,
-        "delta_vs_baseline": deltas,
-        "rule_based_recommendation": recommendation,
-        "decision_questions": decision_questions[:3],  # keep short
-        "assumptions": assumptions[:10],               # keep short
-        "recommendation_rules": rec_rules[:3],         # keep short
-        "notes": "All values are from an internal toy system-dynamics model v0.1 (not calibrated).",
+        "final_metrics": cur,
+        "baseline_final_metrics": base,
+        "delta_vs_baseline": delta,
+        "rule_recommendation": recommendation,
+        "time_horizon_years": float(df["year"].max()) if "year" in df.columns else None,
     }
 
-    # JSON schema for structured, reliable UI rendering
-    schema = {
-        "type": "object",
-        "additionalProperties": False,
-        "properties": {
-            "executive_summary": {"type": "array", "items": {"type": "string"}, "minItems": 3, "maxItems": 7},
-            "key_drivers": {"type": "array", "items": {"type": "string"}, "minItems": 3, "maxItems": 8},
-            "risks_and_constraints": {"type": "array", "items": {"type": "string"}, "minItems": 3, "maxItems": 10},
-            "recommended_actions": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "action": {"type": "string"},
-                        "rationale": {"type": "string"},
-                        "expected_effect": {"type": "string"},
-                        "knob_changes": {
-                            "type": "object",
-                            "additionalProperties": {"type": "number"},
-                        },
-                    },
-                    "required": ["action", "rationale", "expected_effect", "knob_changes"],
-                },
-                "minItems": 3,
-                "maxItems": 6,
-            },
-            "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
-            "limitations": {"type": "array", "items": {"type": "string"}, "minItems": 3, "maxItems": 8},
-        },
-        "required": [
-            "executive_summary",
-            "key_drivers",
-            "risks_and_constraints",
-            "recommended_actions",
-            "confidence",
-            "limitations",
-        ],
-    }
+    system = (
+        "You are an external System Modeling & AI Task Force writing a CEO-grade analysis for AeroDyn.\n"
+        "Be concise, decision-oriented, and avoid technical jargon.\n"
+        "Use ONLY the provided simulation outputs.\n"
+        "Return ONLY valid JSON that matches the provided schema."
+    )
 
-    instructions = f"""
-{SYSTEM_GUARDRAILS}
-
-Task:
-Given the system-dynamics outputs + scenario knobs, produce a CEO-grade analysis:
-- Explain what happened, why it happened (drivers), and what it implies.
-- Tie to reputation/regulation/market access/contract pipeline.
-- Use baseline comparison if provided.
-- Provide 3–6 recommended actions expressed as knob changes (numbers) + rationale.
-- Mention limitations clearly.
-
-Output MUST be valid JSON matching the schema exactly.
-"""
+    user = (
+        "Analyze this run and provide:\n"
+        "- Executive summary bullets (3–5)\n"
+        "- Key drivers (3–6)\n"
+        "- Risks & constraints (3–6)\n"
+        "- Recommended actions (2–5). Each action MUST include knob_changes as a LIST of {knob_id, value}.\n"
+        "  Use knob_id from knobs_used keys when possible.\n"
+        "- Confidence: low/medium/high\n"
+        "- Limitations (3–6)\n\n"
+        f"DATA:\n{json.dumps(payload, indent=2)}"
+    )
 
     resp = client.responses.create(
         model=model,
         input=[
-            {"role": "system", "content": instructions},
-            {"role": "user", "content": str(context)},
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
         ],
         text={
             "format": {
                 "type": "json_schema",
                 "name": "aerodyn_llm_analysis",
-                "schema": schema,
+                "schema": AERODYN_ANALYSIS_SCHEMA,
                 "strict": True,
             }
         },
-        temperature=0.2,
     )
 
-    data = resp.output_text
-    # output_text is JSON text; parse safely:
-    import json
-    obj = json.loads(data)
+    raw = (resp.output_text or "").strip()
+    if not raw:
+        raise RuntimeError("Empty LLM response. Try again.")
 
-    return AnalystResult(
-        executive_summary=obj["executive_summary"],
-        key_drivers=obj["key_drivers"],
-        risks_and_constraints=obj["risks_and_constraints"],
-        recommended_actions=obj["recommended_actions"],
-        confidence=obj["confidence"],
-        limitations=obj["limitations"],
+    try:
+        data = json.loads(raw)
+    except Exception as e:
+        raise RuntimeError(f"LLM returned non-JSON output: {e}\n\nRAW:\n{raw}")
+
+    return LLMAnalysis(
+        executive_summary=data["executive_summary"],
+        key_drivers=data["key_drivers"],
+        risks_and_constraints=data["risks_and_constraints"],
+        recommended_actions=data["recommended_actions"],
+        confidence=data["confidence"],
+        limitations=data["limitations"],
     )

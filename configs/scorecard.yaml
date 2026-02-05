@@ -1,0 +1,11 @@
+scorecard:
+  id: scorecard_v1
+  description: "Board score to compare strategies (higher is better)."
+  weights:
+    deals_won_per_year: 0.45
+    reputation_capital: 0.25
+    market_access_factor: 0.20
+    regulatory_constraint_level: -0.10  # negative weight (lower constraints is better)
+  guardrails:
+    min_reputation: 0.30
+    max_constraints: 0.90

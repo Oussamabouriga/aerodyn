@@ -6,7 +6,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from typing import Dict, Any  # noqa: E402
+from typing import Dict, Any, Optional  # noqa: E402
 
 import yaml  # noqa: E402
 import pandas as pd  # noqa: E402
@@ -44,7 +44,23 @@ st.set_page_config(page_title="Run Simulation", page_icon="📈", layout="wide")
 st.title("Run Simulation")
 st.caption("AeroDyn v0.1 — scenario runner with editable knobs (scenario + overrides).")
 
+# -------------------------
+# Session state init
+# -------------------------
+if "df" not in st.session_state:
+    st.session_state.df = None
+if "baseline_df" not in st.session_state:
+    st.session_state.baseline_df = None
+if "last_scenario" not in st.session_state:
+    st.session_state.last_scenario = None
+if "last_knobs" not in st.session_state:
+    st.session_state.last_knobs = None
+if "llm_analysis" not in st.session_state:
+    st.session_state.llm_analysis = None
+
+# -------------------------
 # Sidebar controls
+# -------------------------
 with st.sidebar:
     st.header("Controls")
 
@@ -62,6 +78,8 @@ with st.sidebar:
         format_func=lambda x: scenario_labels.get(x, x),
         index=scenario_ids.index("baseline") if "baseline" in scenario_ids else 0,
     )
+
+    compare_with_baseline = st.checkbox("Compare with baseline", value=True)
 
     scenario = next(s for s in scenarios if s["id"] == chosen)
     knobs_from_yaml = scenario.get("knobs", {})
@@ -122,24 +140,31 @@ knob_overrides = {
     "policy_tightening_trend": float(policy_tightening_trend),
 }
 
-if "df" not in st.session_state:
-    st.session_state.df = None
-if "last_scenario" not in st.session_state:
-    st.session_state.last_scenario = None
-if "last_knobs" not in st.session_state:
-    st.session_state.last_knobs = None
-
+# -------------------------
+# Run simulation
+# -------------------------
 if run_clicked:
     with st.spinner("Running simulation…"):
         df = run_simulation(chosen, knob_overrides=knob_overrides)
+
+        baseline_df: Optional[pd.DataFrame] = None
+        if compare_with_baseline and chosen != "baseline":
+            baseline_df = run_simulation("baseline", knob_overrides={})
+
     st.session_state.df = df
+    st.session_state.baseline_df = baseline_df
     st.session_state.last_scenario = chosen
     st.session_state.last_knobs = knob_overrides
+
+    # Clear old analysis after a new run
+    st.session_state.llm_analysis = None
 
 df: pd.DataFrame | None = st.session_state.df
 if df is None:
     st.info("Use the sidebar and click **Run simulation**.")
     st.stop()
+
+baseline_df: Optional[pd.DataFrame] = st.session_state.baseline_df
 
 # -------------------------
 # KPI cards
@@ -153,7 +178,7 @@ k4.metric("Constraints", f"{last['regulatory_constraint_level']:.3f}")
 k5.metric("Market access", f"{last['market_access_factor']:.3f}")
 
 # -------------------------
-# Board Recommendation (NEW)
+# Board Recommendation (rule-based)
 # -------------------------
 final_metrics = {
     "deals_won_per_year": float(last["deals_won_per_year"]),
@@ -164,7 +189,7 @@ final_metrics = {
 
 rec = recommend(final_metrics, rule_id="rec_rule_v1")
 
-st.subheader("Board Recommendation")
+st.subheader("Board Recommendation (deterministic rule)")
 if rec.severity == "success":
     st.success(f"✅ {rec.label} — {rec.reason}")
 elif rec.severity == "warning":
@@ -175,9 +200,9 @@ else:
 st.divider()
 
 # -------------------------
-# Charts
+# Charts + AI Analyst
 # -------------------------
-tab1, tab2, tab3 = st.tabs(["Business", "Risk & Constraints", "Data"])
+tab1, tab2, tab_ai, tab3 = st.tabs(["Business", "Risk & Constraints", "AI Analyst", "Data"])
 
 with tab1:
     c1, c2 = st.columns(2)
@@ -188,6 +213,9 @@ with tab1:
     fig = px.line(df, x="year", y="opportunity_pipeline", title="Opportunity pipeline")
     fig.update_layout(margin=dict(l=10, r=10, t=50, b=10))
     c2.plotly_chart(fig, use_container_width=True)
+
+    if baseline_df is not None:
+        st.caption("Baseline comparison enabled (use AI Analyst tab for narrative deltas).")
 
 with tab2:
     c1, c2 = st.columns(2)
@@ -202,6 +230,70 @@ with tab2:
     fig = px.line(df, x="year", y="public_backlash_index", title="Public backlash index")
     fig.update_layout(margin=dict(l=10, r=10, t=50, b=10))
     st.plotly_chart(fig, use_container_width=True)
+
+with tab_ai:
+    st.subheader("AI Analyst (LLM)")
+    st.caption("CEO-grade narrative based on outputs + baseline comparison + assumptions. (Business decision support only.)")
+
+    # Convert rule-based recommendation to a dict for the analyst context
+    rec_payload = {
+        "rule_id": getattr(rec, "rule_id", "rec_rule_v1"),
+        "severity": getattr(rec, "severity", "info"),
+        "label": getattr(rec, "label", ""),
+        "reason": getattr(rec, "reason", ""),
+        "final_metrics": final_metrics,
+    }
+
+    if baseline_df is None:
+        st.info("Baseline comparison is OFF (or you ran baseline). Turn on **Compare with baseline** for richer analysis.")
+
+    gen = st.button("🤖 Generate AI analysis", type="primary", use_container_width=True)
+
+    if gen:
+        try:
+            from factory.extract.llm_analyst import analyze_run
+        except Exception as e:
+            st.error(f"Cannot import LLM analyst module: {e}")
+            st.stop()
+
+        with st.spinner("Generating CEO-grade analysis…"):
+            st.session_state.llm_analysis = analyze_run(
+                df,
+                scenario_id=st.session_state.last_scenario or chosen,
+                knobs_used=st.session_state.last_knobs or {},
+                recommendation=rec_payload,
+                baseline_df=baseline_df,
+            )
+
+    analysis = st.session_state.llm_analysis
+    if analysis is None:
+        st.info("Click **Generate AI analysis** to get a narrative + recommended actions.")
+        st.stop()
+
+    st.markdown("## Executive summary")
+    for b in analysis.executive_summary:
+        st.write(f"- {b}")
+
+    st.markdown("## Key drivers")
+    for d in analysis.key_drivers:
+        st.write(f"- {d}")
+
+    st.markdown("## Risks & constraints")
+    for r in analysis.risks_and_constraints:
+        st.write(f"- {r}")
+
+    st.markdown("## Recommended actions (knob changes)")
+    for i, a in enumerate(analysis.recommended_actions, start=1):
+        st.markdown(f"**{i}. {a['action']}**")
+        st.write(a["rationale"])
+        st.caption(f"Expected effect: {a['expected_effect']}")
+        st.json(a["knob_changes"])
+
+    st.markdown(f"**Confidence:** `{analysis.confidence}`")
+
+    st.markdown("## Limitations (model + uncertainty)")
+    for l in analysis.limitations:
+        st.write(f"- {l}")
 
 with tab3:
     st.subheader("Knobs used")
