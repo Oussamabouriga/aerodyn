@@ -1,0 +1,12 @@
+streamlit>=1.32
+pydantic>=2.6
+PyYAML>=6.0
+ruamel.yaml>=0.18
+python-dotenv>=1.0
+pandas>=2.1
+numpy>=1.26
+bptk-py>=1.10
+plotly>=5.18
+rich>=13.7
+deepdiff>=7.0
+openai>=1.0.0

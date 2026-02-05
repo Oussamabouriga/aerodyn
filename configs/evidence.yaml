@@ -1,0 +1,28 @@
+evidence:
+  - id: E_AI_ACT_ART2
+    source_type: policy
+    title: EU AI Act - Article 2 Scope (defence exemption)
+    snippet: "Defence/military exemptions under specified conditions."
+    reliability: A
+    tags: [regulation, ai_act, scope]
+
+  - id: E_EU_DUAL_USE_2021_821
+    source_type: policy
+    title: EU Dual-Use Export Controls (2021/821)
+    snippet: "Controls export/transfer/technical assistance for dual-use items incl. software/technology."
+    reliability: A
+    tags: [export_control, dual_use, compliance]
+
+  - id: E_EU_COMMON_POSITION_2008_944
+    source_type: policy
+    title: EU Common Position 2008/944/CFSP (military export licensing criteria)
+    snippet: "Member States assess export licenses using common criteria (risk, stability, etc.)."
+    reliability: A
+    tags: [export_control, military, licensing]
+
+  - id: E_WASSENAAR_LISTS
+    source_type: policy
+    title: Wassenaar Arrangement control lists
+    snippet: "Public control lists for dual-use goods/tech and munitions."
+    reliability: B
+    tags: [export_control, wassenaar, controls]

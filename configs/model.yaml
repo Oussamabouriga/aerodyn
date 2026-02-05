@@ -1,0 +1,40 @@
+model:
+  time_step_months: 1
+  horizon_years: 10
+
+  # Engine parameters (editable & tunable later)
+  parameters:
+    # Opportunity pipeline dynamics (monthly rates)
+    base_opportunity_inflow_per_month: 3.0
+    pipeline_close_rate_per_month: 0.06
+    pipeline_loss_rate_per_month: 0.02
+
+    # Reputation dynamics
+    reputation_recovery_rate_per_month: 0.03
+    reputation_decay_rate_per_month: 0.08
+
+    # Regulatory constraint dynamics
+    constraint_tighten_rate_per_month: 0.05
+    constraint_relax_rate_per_month: 0.02
+
+    # AI capability dynamics
+    capability_growth_rate_per_month: 0.05
+    capability_decay_rate_per_month: 0.01
+
+    # Win-rate shaping (base + weights)
+    base_win_rate: 0.18
+    win_w_capability: 0.25
+    win_w_reputation: 0.20
+    win_w_constraints: 0.35
+    win_min: 0.02
+    win_max: 0.85
+
+    # Backlash shaping (simple linear combo)
+    backlash_w_incident: 0.70
+    backlash_w_exposure: 0.35
+    backlash_w_pr: 0.45
+    backlash_w_constraints: 0.10
+
+    # Exposure shaping
+    exposure_w_investment: 0.80
+    exposure_w_capability: 0.20

@@ -1,0 +1,20 @@
+kpis:
+  - id: deals_won_per_year
+    unit: deals/year
+    description: Annual number of deals won.
+
+  - id: opportunity_pipeline
+    unit: deals
+    description: Size of active opportunity pipeline.
+
+  - id: reputation_capital
+    unit: index
+    description: Brand/reputation index (0-1 or 0-100; define later).
+
+  - id: regulatory_constraint_level
+    unit: index
+    description: Regulatory/export constraint index (0-1).
+
+  - id: market_access_factor
+    unit: factor
+    description: Fraction of markets accessible (0-1).
