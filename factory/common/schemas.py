@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Literal, Optional, Dict, Any, List
 from pydantic import BaseModel, Field, model_validator
-
+from datetime import date, datetime
+from pydantic import field_validator
 
 VarType = Literal["stock", "aux", "param"]
 
@@ -97,27 +98,28 @@ Uncertainty = Literal["low", "medium", "high"]
 
 class EvidenceItem(BaseModel):
     id: str
-    source_type: EvidenceSourceType
+    source_type: str
     title: str
     snippet: str
-    reliability: Reliability
-
-    jurisdiction: Optional[str] = None
-    date: Optional[str] = None
-    url: Optional[str] = None
+    reliability: str
+    jurisdiction: Optional[str] = ""
+    date: Optional[str] = ""          # keep it as string in the model output
+    url: Optional[str] = ""
     tags: List[str] = Field(default_factory=list)
-    notes: Optional[str] = None
+    notes: Optional[str] = ""
+
+    @field_validator("date", mode="before")
+    def coerce_date_to_string(cls, v):
+        # PyYAML may parse YYYY-MM-DD into datetime.date
+        if isinstance(v, (date, datetime)):
+            return v.isoformat()
+        return v
 
 
 class EvidenceConfig(BaseModel):
-    evidence: List[EvidenceItem] = Field(default_factory=list)
+    evidence: List[EvidenceItem]
 
-    @model_validator(mode="after")
-    def unique_ids(self):
-        ids = [e.id for e in self.evidence]
-        if len(ids) != len(set(ids)):
-            raise ValueError("Duplicate evidence ids found in evidence.yaml")
-        return self
+
 
 
 class AssumptionItem(BaseModel):
@@ -143,4 +145,43 @@ class AssumptionsConfig(BaseModel):
         ids = [a.id for a in self.assumptions]
         if len(ids) != len(set(ids)):
             raise ValueError("Duplicate assumption ids found in assumptions.yaml")
+        return self
+    
+
+# =========================================================
+# NEW: configs/claims.yaml
+# =========================================================
+from typing import Literal
+from pydantic import Field
+
+ClaimStatus = Literal["proposed", "approved", "rejected"]
+Polarity = Literal["+", "-"]
+
+
+class ClaimItem(BaseModel):
+    id: str
+    status: ClaimStatus = "proposed"
+    statement: str
+
+    from_var: str
+    to_var: str
+    polarity: Polarity = "+"
+
+    delay_months: int = Field(default=0, ge=0, le=120)
+
+    evidence_id: str
+    evidence_snippet: str = ""
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    reviewer_note: str = ""
+
+
+class ClaimsConfig(BaseModel):
+    claims: List[ClaimItem] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def unique_ids(self):
+        ids = [c.id for c in self.claims]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Duplicate claim ids found in claims.yaml")
         return self

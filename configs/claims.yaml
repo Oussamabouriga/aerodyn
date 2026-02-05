@@ -1,0 +1,12 @@
+claims:
+- id: CLM_0001
+  status: proposed
+  statement: Higher incident rate increases public backlash.
+  from_var: incident_rate
+  to_var: public_backlash_index
+  polarity: +
+  delay_months: 3
+  evidence_id: E_AI_ACT_ART2
+  evidence_snippet: Public scrutiny and political response can intensify following incidents.
+  confidence: 0.7
+  reviewer_note: ''

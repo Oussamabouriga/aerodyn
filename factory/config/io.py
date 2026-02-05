@@ -9,13 +9,6 @@ import yaml
 from deepdiff import DeepDiff
 from ruamel.yaml import YAML
 
-# Business-schema validation (Step 4.2)
-from factory.common.schemas import (
-    VariablesConfig,
-    ScenariosConfig,
-    ModelConfig,
-    RecommendationRulesConfig,
-)
 
 from factory.common.schemas import (
     VariablesConfig,
@@ -24,6 +17,7 @@ from factory.common.schemas import (
     RecommendationRulesConfig,
     EvidenceConfig,
     AssumptionsConfig,
+    ClaimsConfig,
 )
 
 # -----------------------------
@@ -177,6 +171,10 @@ def validate_by_filename(filename: str, parsed_yaml: Dict[str, Any]) -> None:
         validate_assumptions_cfg(parsed_yaml)
         return
     
+    if filename == "claims.yaml":
+        validate_claims_cfg(parsed_yaml)
+        return
+    
     # For other YAML files (evidence.yaml, assumptions.yaml, etc.)
     # we currently only guarantee YAML syntax validity.
     return
@@ -249,5 +247,32 @@ def validate_assumptions_cfg(data: Dict[str, Any]) -> AssumptionsConfig:
     if missing_params:
         msg = ", ".join([f"{aid}->{pid}" for aid, pid in missing_params])
         raise ValueError(f"assumptions.yaml references unknown linked_params (param vars): {msg}")
+
+    return cfg
+
+
+def validate_claims_cfg(data: Dict[str, Any]) -> ClaimsConfig:
+    """
+    Validates configs/claims.yaml:
+    - schema ok
+    - claim IDs unique
+    - from_var/to_var must exist in variables.yaml
+    - evidence_id must exist in evidence.yaml
+    """
+    cfg = ClaimsConfig.model_validate(data)
+
+    vars_cfg = validate_variables_cfg(load_yaml("configs/variables.yaml"))
+    var_ids = {v.id for v in vars_cfg.variables}
+
+    ev_cfg = validate_evidence_cfg(load_yaml("configs/evidence.yaml"))
+    ev_ids = {e.id for e in ev_cfg.evidence}
+
+    for c in cfg.claims:
+        if c.from_var not in var_ids:
+            raise ValueError(f"Claim '{c.id}' references unknown from_var '{c.from_var}'")
+        if c.to_var not in var_ids:
+            raise ValueError(f"Claim '{c.id}' references unknown to_var '{c.to_var}'")
+        if c.evidence_id not in ev_ids:
+            raise ValueError(f"Claim '{c.id}' references unknown evidence_id '{c.evidence_id}'")
 
     return cfg
